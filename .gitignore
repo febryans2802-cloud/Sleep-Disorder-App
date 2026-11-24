@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Downloaded models and recordings: never commit night recordings
+models/
+results/
+recordings/
+*.mp4
+*.mov
+*.wav
