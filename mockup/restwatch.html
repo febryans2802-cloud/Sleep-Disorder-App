@@ -1,0 +1,614 @@
+<title>Restwatch Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Sora:wght@600;700&display=swap">
+<style>
+/* Layout: a guide column (what each screen is for) beside a phone frame on desktop;
+   on a phone the frame disappears and the page itself is the app. */
+:root {
+  --bg: #eceff5; --panel: #ffffff; --surface: #f6f7fb; --ink: #131a2e; --muted: #5a6479; --line: #dce0ea;
+  --accent: #2c56cf; --accent-ink: #ffffff; --accent-soft: #e3eafb;
+  --high: #c2410c; --high-soft: #fde9de; --mid: #a16207; --mid-soft: #fbf0d6; --low: #64748b; --low-soft: #edf0f4;
+  --good: #15803d; --good-soft: #e1f3e7; --frame: #1a1f30; --shadow: 0 24px 60px rgba(19, 26, 46, .18);
+  --night-bg: #090d1a; --night-ink: #c7cfe4; --night-muted: #6d7894; --night-line: #1c2440; --night-rec: #ef4444;
+  --room: #1b2136; --bed: #2e3752; --sheet: #3d4868; --body: #9fb0d8;
+  --display: "Sora", "Segoe UI", system-ui, sans-serif;
+  --text: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d111d; --panel: #161b2b; --surface: #1c2235; --ink: #e6e9f2; --muted: #9aa3b8; --line: #2a3147;
+    --accent: #7d9bff; --accent-ink: #0d111d; --accent-soft: #222c4c;
+    --high: #fb923c; --high-soft: #3a2316; --mid: #facc15; --mid-soft: #362d10; --low: #94a3b8; --low-soft: #222a3a;
+    --good: #4ade80; --good-soft: #14301f; --frame: #04060b; --shadow: 0 24px 60px rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d111d; --panel: #161b2b; --surface: #1c2235; --ink: #e6e9f2; --muted: #9aa3b8; --line: #2a3147;
+  --accent: #7d9bff; --accent-ink: #0d111d; --accent-soft: #222c4c;
+  --high: #fb923c; --high-soft: #3a2316; --mid: #facc15; --mid-soft: #362d10; --low: #94a3b8; --low-soft: #222a3a;
+  --good: #4ade80; --good-soft: #14301f; --frame: #04060b; --shadow: 0 24px 60px rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--text); }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+p { margin: 0; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+.shell {
+  max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) 400px;
+  gap: 48px; align-items: start;
+  padding-block: 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* Guide column */
+.guide { display: grid; gap: 20px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); min-width: 0; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.guide h1 { font-size: 34px; line-height: 1.1; }
+.guide .lead { color: var(--muted); max-width: 52ch; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: step; }
+.steps button {
+  width: 100%; text-align: left; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px 12px;
+  padding: 10px 12px; border-radius: 10px; border: 1px solid transparent; background: none; cursor: pointer;
+}
+.steps button:hover { background: var(--panel); }
+.steps button[aria-current="step"] { background: var(--panel); border-color: var(--line); }
+.steps .n {
+  grid-row: span 2; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  font: 600 13px/1 var(--mono); background: var(--surface); border: 1px solid var(--line); color: var(--muted);
+}
+.steps button[aria-current="step"] .n { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.steps .t { font-weight: 600; }
+.steps .d { color: var(--muted); font-size: 13px; }
+.disclaimer { font-size: 13px; color: var(--muted); border-left: 3px solid var(--line); padding-left: 12px; max-width: 52ch; }
+
+/* Phone frame */
+.stage { display: flex; justify-content: center; }
+.phone {
+  width: 400px; height: 800px; border-radius: 48px; background: var(--frame); padding: 12px; box-shadow: var(--shadow);
+}
+.app {
+  position: relative; height: 100%; border-radius: 37px; overflow: hidden; background: var(--panel);
+  display: flex; flex-direction: column;
+}
+.status { display: flex; justify-content: space-between; padding: 14px 28px 6px; font: 600 13px/1 var(--text); }
+.screen { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.appbar { display: flex; align-items: center; gap: 8px; padding: 8px 16px 12px; }
+.appbar h2 { font-size: 17px; flex: 1; }
+.back { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); cursor: pointer; display: grid; place-items: center; }
+.stepnum { font: 500 12px/1 var(--mono); color: var(--muted); }
+.body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 20px 20px; display: grid; gap: 16px; align-content: start; }
+.foot { padding: 12px 20px 20px; border-top: 1px solid var(--line); background: var(--panel); display: grid; gap: 8px; }
+.primary {
+  width: 100%; border: 0; border-radius: 14px; padding: 15px; background: var(--accent); color: var(--accent-ink);
+  font-weight: 600; cursor: pointer;
+}
+.primary:disabled { opacity: .4; cursor: not-allowed; }
+.secondary { width: 100%; border-radius: 14px; padding: 13px; background: none; border: 1px solid var(--line); font-weight: 600; cursor: pointer; }
+.hint { font-size: 12.5px; color: var(--muted); text-align: center; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: grid; gap: 12px; }
+.label { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 7px 12px; font-size: 13.5px; cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); font-weight: 500; }
+.check { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; cursor: pointer; }
+.check input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--accent); }
+.note { display: flex; gap: 10px; font-size: 13.5px; color: var(--muted); }
+.note svg { flex: none; margin-top: 2px; }
+
+/* Welcome */
+.hero-mark { display: flex; align-items: center; gap: 10px; padding-top: 8px; }
+.hero-mark span { font: 700 18px/1 var(--display); }
+.welcome h3 { font-size: 26px; line-height: 1.2; }
+
+/* Questions */
+.q { display: grid; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.q:last-of-type { border-bottom: 0; padding-bottom: 0; }
+.q p { font-size: 14.5px; }
+.q .src { font-size: 12px; color: var(--muted); }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { border: 0; background: var(--panel); padding: 8px 4px; font-size: 13.5px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.result { background: var(--accent-soft); border-color: transparent; }
+.result ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
+
+/* Setup */
+.preview { border-radius: 16px; overflow: hidden; position: relative; background: var(--room); }
+.preview svg { display: block; width: 100%; height: auto; }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+.badge.good { background: var(--good-soft); color: var(--good); }
+.preview .badge { position: absolute; left: 12px; bottom: 12px; }
+.meter { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 94%; background: var(--good); border-radius: inherit; }
+.row { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+
+/* Recording (always a night screen, whatever the theme) */
+.night { background: var(--night-bg); color: var(--night-ink); }
+.night .body { align-content: space-between; text-align: center; padding-top: 24px; transition: opacity .8s; }
+.night.dim .body { opacity: .25; }
+.rec { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--night-muted); justify-self: center; }
+.rec i { width: 9px; height: 9px; border-radius: 50%; background: var(--night-rec); animation: pulse 2s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+.clock { font: 600 64px/1 var(--display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--night-ink); }
+.night .sub { color: var(--night-muted); font-size: 14px; max-width: 30ch; margin: 12px auto 0; }
+.nstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.nstats div { border: 1px solid var(--night-line); border-radius: 12px; padding: 10px 6px; font-size: 12px; color: var(--night-muted); }
+.nstats b { display: block; color: var(--night-ink); font-size: 14px; font-weight: 600; }
+.night .foot { background: var(--night-bg); border-color: var(--night-line); }
+.hold {
+  position: relative; overflow: hidden; width: 100%; border-radius: 14px; padding: 15px; cursor: pointer;
+  border: 1px solid var(--night-line); background: transparent; color: var(--night-ink); font-weight: 600; touch-action: none; user-select: none;
+}
+.hold i { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--night-line); }
+.hold span { position: relative; }
+.night .hint { color: var(--night-muted); }
+
+/* Review */
+.timeline svg { display: block; width: 100%; height: auto; overflow: visible; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+.summary-line { display: flex; justify-content: space-between; gap: 8px; font-size: 13.5px; color: var(--muted); }
+.clip { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px; display: grid; gap: 10px; }
+.clip-top { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; }
+.thumb { position: relative; border-radius: 10px; overflow: hidden; background: var(--room); border: 0; padding: 0; cursor: pointer; aspect-ratio: 4 / 3; max-width: 100%; }
+.thumb svg { display: block; width: 100%; height: 100%; }
+.thumb .play { position: absolute; inset: 0; display: grid; place-items: center; }
+.thumb.playing .play { display: none; }
+.thumb .arm { transform-origin: 46px 44px; transform-box: view-box; }
+.thumb.playing .arm { animation: swing .45s ease-in-out 6 alternate; }
+.thumb.playing .leg { animation: kick .6s ease-in-out 4 alternate; transform-origin: 62px 52px; transform-box: view-box; }
+@keyframes swing { from { transform: rotate(0deg); } to { transform: rotate(-55deg); } }
+@keyframes kick { from { transform: rotate(0deg); } to { transform: rotate(-25deg); } }
+.meta { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.meta .when { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pill { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+.pill.high { background: var(--high-soft); color: var(--high); }
+.pill.mid { background: var(--mid-soft); color: var(--mid); }
+.pill.low { background: var(--low-soft); color: var(--low); }
+.reasons { font-size: 12.5px; color: var(--muted); }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tags .chip { padding: 5px 10px; font-size: 12.5px; }
+
+/* Doctor summary */
+.doc { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 16px; }
+.doc h3 { font-size: 16px; }
+.doc .who { font-size: 13px; color: var(--muted); }
+.kv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; font-size: 13.5px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; font-weight: 600; text-align: right; }
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: right; padding: 6px 4px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+th { font-size: 11.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.next { background: var(--accent-soft); border-radius: 12px; padding: 12px; font-size: 13.5px; }
+.toast {
+  position: absolute; left: 16px; right: 16px; bottom: 96px; background: var(--ink); color: var(--panel);
+  border-radius: 12px; padding: 12px 14px; font-size: 13.5px; box-shadow: var(--shadow);
+}
+
+@media (max-width: 860px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 20px; padding-block: 16px 0; }
+  .guide { position: static; gap: 12px; }
+  .guide h1 { font-size: 26px; }
+  .steps { display: flex; overflow-x: auto; gap: 6px; padding-bottom: 4px; }
+  .steps li { flex: none; }
+  .steps button { grid-template-columns: 24px auto; padding: 6px 10px; border-color: var(--line); background: var(--panel); }
+  .steps .n { width: 24px; height: 24px; grid-row: auto; font-size: 12px; }
+  .steps .d { display: none; }
+  .disclaimer { display: none; }
+  .phone { width: 100%; max-width: 440px; height: auto; padding: 0; border-radius: 20px; box-shadow: none; background: none; }
+  .app { border-radius: 20px; border: 1px solid var(--line); min-height: 640px; }
+  .status { display: none; }
+  .body { overflow: visible; }
+  .foot { position: sticky; bottom: 0; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="shell">
+  <aside class="guide">
+    <div class="eyebrow">Clickable mockup · sample data</div>
+    <h1>Restwatch</h1>
+    <p class="lead">A phone app that records nights and finds moments when someone may be acting out their dreams, so they can review them with a doctor. Tap through the six screens in order or jump to one.</p>
+    <ol class="steps" id="steps">
+      <li><button data-go="welcome"><span class="n">1</span><span class="t">Welcome and consent</span><span class="d">Why the user is here; consent from everyone in the room</span></button></li>
+      <li><button data-go="questions"><span class="n">2</span><span class="t">Short questionnaire</span><span class="d">Dream-enactment question plus common causes to rule out</span></button></li>
+      <li><button data-go="setup"><span class="n">3</span><span class="t">Recording setup</span><span class="d">Framing and a light check before the first night</span></button></li>
+      <li><button data-go="recording"><span class="n">4</span><span class="t">Recording</span><span class="d">A dim screen that is safe to leave on all night</span></button></li>
+      <li><button data-go="review"><span class="n">5</span><span class="t">Morning review</span><span class="d">Night timeline and ranked clips to tag</span></button></li>
+      <li><button data-go="summary"><span class="n">6</span><span class="t">Doctor summary</span><span class="d">One page to share before the clinic visit</span></button></li>
+    </ol>
+    <p class="disclaimer">Nothing here detects anything: the clips, scores and answers are made-up sample data. The real ranking comes from the rbdcap analysis code. The app does not diagnose; only a sleep-lab test can confirm REM sleep behavior disorder.</p>
+  </aside>
+
+  <div class="stage">
+    <div class="phone">
+      <div class="app" id="app">
+        <div class="status"><span class="mono">9:41</span><span class="mono">87%</span></div>
+
+        <!-- 1. Welcome -->
+        <section class="screen" id="scr-welcome" data-screen>
+          <div class="body welcome">
+            <div class="hero-mark">
+              <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="var(--accent-soft)"/><path d="M20 8a9 9 0 1 0 4 14 7 7 0 0 1-4-14z" fill="var(--accent)"/></svg>
+              <span>Restwatch</span>
+            </div>
+            <h3>Find out what happens while you sleep</h3>
+            <p>Restwatch records your nights and picks out moments when you may be acting out dreams. You review them, then share a summary with your doctor. It does not diagnose.</p>
+            <div class="card">
+              <div class="label">What brings you here?</div>
+              <div class="chips" id="reasons">
+                <button class="chip" aria-pressed="true">Someone says I act out dreams</button>
+                <button class="chip" aria-pressed="false">I've fallen out of bed asleep</button>
+                <button class="chip" aria-pressed="false">I've hurt myself or my partner</button>
+                <button class="chip" aria-pressed="true">I talk or shout in my sleep</button>
+              </div>
+            </div>
+            <div class="card">
+              <div class="label">Consent</div>
+              <label class="check"><input type="checkbox" id="consent-me"><span>I agree to be recorded on video and audio at night.</span></label>
+              <label class="check"><input type="checkbox" id="consent-room"><span>Everyone who sleeps in the room has agreed too.</span></label>
+              <div class="note">
+                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+                <span>Recordings stay on this phone. A clip leaves it only when you choose to share it.</span>
+              </div>
+            </div>
+          </div>
+          <div class="foot">
+            <button class="primary" id="welcome-next" disabled data-go="questions">Continue</button>
+            <p class="hint" id="welcome-hint">Tick both consent boxes to continue.</p>
+          </div>
+        </section>
+
+        <!-- 2. Questions -->
+        <section class="screen" id="scr-questions" data-screen hidden>
+          <div class="appbar"><button class="back" data-go="welcome" aria-label="Back"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><h2>A few questions</h2><span class="stepnum">2 / 6</span></div>
+          <div class="body">
+            <div class="card" id="qcard">
+              <div class="q" data-q="rbd">
+                <p>Have you ever been told, or suspected yourself, that you seem to “act out your dreams” while asleep (for example, punching, flailing your arms, making running movements)?</p>
+                <span class="src">Single-question RBD screen (RBD1Q)</span>
+                <div class="seg"><button aria-pressed="true">Yes</button><button aria-pressed="false">No</button><button aria-pressed="false">Not sure</button></div>
+              </div>
+              <div class="q" data-q="apnea">
+                <p>Do you snore loudly, or has anyone seen you stop breathing in your sleep?</p>
+                <div class="seg"><button aria-pressed="false">Yes</button><button aria-pressed="true">No</button><button aria-pressed="false">Not sure</button></div>
+              </div>
+              <div class="q" data-q="meds">
+                <p>Do you take antidepressants or other medicines that affect sleep?</p>
+                <div class="seg"><button aria-pressed="false">Yes</button><button aria-pressed="true">No</button><button aria-pressed="false">Not sure</button></div>
+              </div>
+              <div class="q" data-q="hours">
+                <p>Do you usually sleep at least 7 hours a night?</p>
+                <div class="seg"><button aria-pressed="true">Yes</button><button aria-pressed="false">No</button><button aria-pressed="false">Not sure</button></div>
+              </div>
+            </div>
+            <div class="card result">
+              <div class="label">What this means</div>
+              <ul id="result"></ul>
+            </div>
+          </div>
+          <div class="foot"><button class="primary" data-go="setup">Set up recording</button></div>
+        </section>
+
+        <!-- 3. Setup -->
+        <section class="screen" id="scr-setup" data-screen hidden>
+          <div class="appbar"><button class="back" data-go="questions" aria-label="Back"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><h2>Set up the phone</h2><span class="stepnum">3 / 6</span></div>
+          <div class="body">
+            <div class="preview">
+              <svg viewBox="0 0 320 200" role="img" aria-label="Camera preview: a person lying in bed, fully inside the framing guide">
+                <rect width="320" height="200" fill="var(--room)"/>
+                <circle cx="270" cy="34" r="10" fill="#f5d48a" opacity=".55"/>
+                <circle cx="270" cy="34" r="26" fill="#f5d48a" opacity=".08"/>
+                <rect x="40" y="96" width="240" height="64" rx="8" fill="var(--bed)"/>
+                <rect x="44" y="86" width="44" height="22" rx="8" fill="var(--sheet)"/>
+                <circle cx="70" cy="92" r="11" fill="var(--body)"/>
+                <path d="M82 102 H200" stroke="var(--body)" stroke-width="16" stroke-linecap="round"/>
+                <path d="M200 102 L250 106" stroke="var(--body)" stroke-width="10" stroke-linecap="round"/>
+                <rect x="110" y="94" width="150" height="28" rx="8" fill="var(--sheet)" opacity=".85"/>
+                <rect x="30" y="70" width="260" height="102" rx="10" fill="none" stroke="#7ee2a8" stroke-width="2" stroke-dasharray="6 5"/>
+              </svg>
+              <span class="badge good">Whole body in frame</span>
+            </div>
+            <div class="card">
+              <div class="row"><span class="label">Light check</span><span class="badge good">OK</span></div>
+              <div class="meter" aria-hidden="true"><i></i></div>
+              <p style="font-size:13.5px;color:var(--muted)">Body found in <b class="mono" style="color:var(--ink)">94%</b> of frames in a 5-minute test. Keep the night-light dim and warm.</p>
+            </div>
+            <div class="card">
+              <div class="label">Before you sleep</div>
+              <label class="check"><input type="checkbox" class="prep" checked><span>Phone is plugged in</span></label>
+              <label class="check"><input type="checkbox" class="prep" checked><span>Do not disturb is on</span></label>
+              <label class="check"><input type="checkbox" class="prep" checked><span>Phone is sideways, about 1.5–2 m from the bed</span></label>
+              <label class="check"><input type="checkbox" class="prep"><span>Night-light is on</span></label>
+            </div>
+            <div class="card">
+              <div class="label">Who sleeps where in the picture?</div>
+              <div class="seg" id="side"><button aria-pressed="true">Only me</button><button aria-pressed="false">I'm on the left</button><button aria-pressed="false">I'm on the right</button></div>
+            </div>
+          </div>
+          <div class="foot"><button class="primary" id="start-rec" data-go="recording" disabled>Start recording</button><p class="hint" id="setup-hint">Tick every item in the checklist to start.</p></div>
+        </section>
+
+        <!-- 4. Recording -->
+        <section class="screen night" id="scr-recording" data-screen hidden>
+          <div class="body">
+            <span class="rec"><i></i>Recording since <span class="mono">23:12</span></span>
+            <div>
+              <div class="clock" id="clock">02:47</div>
+              <p class="sub">Sleep well. There is nothing to watch tonight; your results are ready in the morning.</p>
+            </div>
+            <div class="nstats">
+              <div><b>Charging</b>battery</div>
+              <div><b class="mono">41 GB</b>free space</div>
+              <div><b>OK</b>light check</div>
+            </div>
+          </div>
+          <div class="foot">
+            <button class="hold" id="hold"><i id="hold-fill"></i><span>Hold to stop recording</span></button>
+            <p class="hint" id="night-hint">The screen dims after a few seconds. Tap to wake it.</p>
+          </div>
+        </section>
+
+        <!-- 5. Review -->
+        <section class="screen" id="scr-review" data-screen hidden>
+          <div class="appbar"><h2>Night of 23 Nov</h2><span class="stepnum">5 / 6</span></div>
+          <div class="body">
+            <div class="card timeline">
+              <div class="row"><span class="label">Your night</span><span class="mono" style="font-size:12.5px;color:var(--muted)">23:12 – 07:05 · 7 h 53 m</span></div>
+              <svg id="tl" viewBox="0 0 320 70" role="img" aria-label="Flagged moments across the night"></svg>
+              <div class="legend"><span><i style="background:var(--high)"></i>High</span><span><i style="background:var(--mid)"></i>Medium</span><span><i style="background:var(--low)"></i>Low priority</span></div>
+            </div>
+            <div class="summary-line"><span><b id="n-clips" style="color:var(--ink)">6</b> moments to review</span><span id="n-tagged">0 of 6 tagged</span></div>
+            <div id="clips" style="display:grid;gap:12px"></div>
+            <p class="hint">Priority comes from movement, sounds and time of night. It is not a diagnosis.</p>
+          </div>
+          <div class="foot"><button class="primary" data-go="summary">Make a summary for my doctor</button></div>
+        </section>
+
+        <!-- 6. Summary -->
+        <section class="screen" id="scr-summary" data-screen hidden>
+          <div class="appbar"><button class="back" data-go="review" aria-label="Back"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button><h2>Summary for your doctor</h2><span class="stepnum">6 / 6</span></div>
+          <div class="body">
+            <div class="doc">
+              <div>
+                <h3>Restwatch night summary</h3>
+                <p class="who">Example patient · 3 nights, 21–23 Nov</p>
+              </div>
+              <div>
+                <div class="label" style="margin-bottom:6px">Questionnaire</div>
+                <dl class="kv">
+                  <dt>Acts out dreams (RBD1Q)</dt><dd id="s-rbd">Yes</dd>
+                  <dt>Loud snoring or observed apneas</dt><dd id="s-apnea">No</dd>
+                  <dt>Sleep-affecting medicines</dt><dd id="s-meds">No</dd>
+                  <dt>Usually sleeps 7 h or more</dt><dd id="s-hours">Yes</dd>
+                </dl>
+              </div>
+              <div>
+                <div class="label" style="margin-bottom:6px">Nights recorded</div>
+                <div class="tbl-wrap">
+                  <table>
+                    <thead><tr><th>Night</th><th>Hours</th><th>Flagged</th><th>Tagged as enactment</th></tr></thead>
+                    <tbody>
+                      <tr><td>21 Nov</td><td class="mono">7.6</td><td class="mono">4</td><td class="mono">1</td></tr>
+                      <tr><td>22 Nov</td><td class="mono">8.1</td><td class="mono">3</td><td class="mono">0</td></tr>
+                      <tr><td>23 Nov</td><td class="mono">7.9</td><td class="mono">6</td><td class="mono" id="s-enact">0</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div>
+                <div class="label" style="margin-bottom:6px">Clips attached</div>
+                <ul id="s-clips" style="margin:0;padding-left:18px;font-size:13.5px;display:grid;gap:4px"></ul>
+              </div>
+              <div class="next"><b>Suggested next step:</b> consider video-polysomnography to check for REM sleep without atonia.</div>
+              <p class="who">Moments are ranked by a rule-based score for review. This summary is not a diagnosis.</p>
+            </div>
+          </div>
+          <div class="foot">
+            <button class="primary" id="send">Send to my clinic</button>
+            <button class="secondary" id="pdf">Save as PDF</button>
+          </div>
+        </section>
+
+        <div class="toast" id="toast" role="status" hidden></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCREENS = ["welcome", "questions", "setup", "recording", "review", "summary"];
+const CLIPS = [
+  { t: "04:52:10", score: 0.86, reasons: "Fast arm movement · limbs much faster than trunk · yelling · second half of the night", tag: "" },
+  { t: "05:38:44", score: 0.74, reasons: "Fast arm movement · talking · second half of the night", tag: "" },
+  { t: "03:15:02", score: 0.52, reasons: "Fast leg movement · limbs much faster than trunk", tag: "" },
+  { t: "06:20:31", score: 0.41, reasons: "Movement under the blanket, body not visible · second half of the night", tag: "" },
+  { t: "01:02:18", score: 0.18, reasons: "Mostly snoring and coughing", tag: "noise / other" },
+  { t: "00:24:55", score: 0.12, reasons: "Slow whole-body turn", tag: "normal movement" },
+];
+const TAGS = ["dream enactment", "normal movement", "bed partner", "noise / other", "not sure"];
+const START = "23:12:00", END = "07:05:00";
+
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const prio = s => s >= 0.6 ? "high" : s >= 0.35 ? "mid" : "low";
+const prioName = { high: "High priority", mid: "Medium priority", low: "Low priority" };
+const toMin = t => { const [h, m, s] = t.split(":").map(Number); return h * 60 + m + (s || 0) / 60; };
+const sinceStart = t => { let d = toMin(t) - toMin(START); if (d < 0) d += 1440; return d; };
+const NIGHT = sinceStart(END);
+
+function show(id) {
+  if (!SCREENS.includes(id)) id = "welcome";
+  $$("[data-screen]").forEach(s => s.hidden = s.id !== "scr-" + id);
+$$("#steps button").forEach(b => {
+    if (b.dataset.go === id) b.setAttribute("aria-current", "step");
+    else b.removeAttribute("aria-current");
+  });
+  const body = $("#scr-" + id + " .body"); if (body) body.scrollTop = 0;
+  if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
+  if (id === "recording") startNight(); else stopNight();
+  if (id === "summary") fillSummary();
+}
+document.addEventListener("click", e => {
+  const go = e.target.closest("[data-go]");
+  if (go && !go.disabled) show(go.dataset.go);
+});
+window.addEventListener("hashchange", () => show(location.hash.slice(1)));
+
+let toastTimer;
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 3200);
+}
+
+/* 1. Welcome */
+$$("#reasons .chip").forEach(c => c.addEventListener("click", () => c.setAttribute("aria-pressed", c.getAttribute("aria-pressed") !== "true")));
+function checkConsent() {
+  const ok = $("#consent-me").checked && $("#consent-room").checked;
+  $("#welcome-next").disabled = !ok;
+  $("#welcome-hint").textContent = ok ? "You can withdraw consent at any time in Settings." : "Tick both consent boxes to continue.";
+}
+["#consent-me", "#consent-room"].forEach(s => $(s).addEventListener("change", checkConsent));
+
+/* 2. Questions */
+function answer(q) { const b = $(`[data-q="${q}"] [aria-pressed="true"]`); return b ? b.textContent : "Not answered"; }
+function updateResult() {
+  const out = [];
+  const rbd = answer("rbd");
+  if (rbd === "Yes") out.push("Recording 3 nights is worthwhile. Your doctor will want to see what happens.");
+  else if (rbd === "Not sure") out.push("Recording a few nights can help you find out.");
+  else out.push("Dream enactment seems unlikely. You can still record if something worries you.");
+  if (answer("apnea") !== "No") out.push("Loud snoring or pauses in breathing can also cause movement at night. Mention it to your doctor; a sleep apnea check may come first.");
+  if (answer("meds") === "Yes") out.push("Some antidepressants can cause dream enactment. Don't stop any medicine on your own; tell your doctor.");
+  if (answer("hours") === "No") out.push("Short sleep makes nights more restless. Try to keep your usual schedule on recording nights.");
+  $("#result").innerHTML = out.map(x => `<li>${x}</li>`).join("");
+}
+$$(".seg").forEach(seg => seg.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  $$("button", seg).forEach(x => x.setAttribute("aria-pressed", x === b));
+  updateResult();
+}));
+updateResult();
+
+/* 3. Setup */
+function checkPrep() {
+  const ok = $$(".prep").every(c => c.checked);
+  $("#start-rec").disabled = !ok;
+  $("#setup-hint").textContent = ok ? "Recording runs until you stop it in the morning." : "Tick every item in the checklist to start.";
+}
+$$(".prep").forEach(c => c.addEventListener("change", checkPrep));
+checkPrep();
+
+/* 4. Recording */
+let clockTimer, dimTimer, minutes = toMin("02:47");
+function renderClock() { const m = Math.floor(minutes) % 1440; $("#clock").textContent = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; }
+function wake() { $("#scr-recording").classList.remove("dim"); clearTimeout(dimTimer); dimTimer = setTimeout(() => $("#scr-recording").classList.add("dim"), 5000); }
+function startNight() {
+  renderClock(); wake();
+  clearInterval(clockTimer); clockTimer = setInterval(() => { minutes += 1; renderClock(); }, 1500);
+}
+function stopNight() { clearInterval(clockTimer); clearTimeout(dimTimer); $("#scr-recording").classList.remove("dim"); }
+$("#scr-recording").addEventListener("pointerdown", wake);
+
+let holdStart = 0, holdRaf = 0;
+const HOLD_MS = 1200;
+function holdTick(now) {
+  const p = Math.min(1, (now - holdStart) / HOLD_MS);
+  $("#hold-fill").style.width = (p * 100) + "%";
+  if (p >= 1) { endHold(); show("review"); toast("Recording stopped. Your night is ready to review."); return; }
+  holdRaf = requestAnimationFrame(holdTick);
+}
+function beginHold(e) { if (holdStart) return; e.preventDefault(); holdStart = performance.now(); holdRaf = requestAnimationFrame(holdTick); }
+function endHold() { cancelAnimationFrame(holdRaf); holdStart = 0; $("#hold-fill").style.width = "0"; }
+const hold = $("#hold");
+hold.addEventListener("pointerdown", beginHold);
+["pointerup", "pointerleave", "pointercancel"].forEach(ev => hold.addEventListener(ev, endHold));
+hold.addEventListener("keydown", e => { if ((e.key === " " || e.key === "Enter") && !e.repeat) beginHold(e); });
+hold.addEventListener("keyup", endHold);
+hold.addEventListener("click", e => e.preventDefault());
+
+/* 5. Review */
+function drawTimeline() {
+  const W = 320, x0 = 8, x1 = W - 8, X = m => x0 + (x1 - x0) * m / NIGHT, base = 44;
+  let s = `<rect x="${X(NIGHT / 2)}" y="6" width="${X(NIGHT) - X(NIGHT / 2)}" height="${base - 6}" rx="4" fill="var(--accent-soft)"/>`;
+  s += `<text x="${X(NIGHT) - 4}" y="17" text-anchor="end" font-size="9.5" fill="var(--muted)">second half (more REM sleep)</text>`;
+  s += `<line x1="${x0}" x2="${x1}" y1="${base}" y2="${base}" stroke="var(--line)" stroke-width="2"/>`;
+  for (let h = 0; h <= 7; h++) {
+    const m = sinceStart(`${String(h).padStart(2, "0")}:00:00`), x = X(m);
+    s += `<line x1="${x}" x2="${x}" y1="${base}" y2="${base + 5}" stroke="var(--muted)"/><text x="${x}" y="${base + 18}" text-anchor="middle" font-size="10" font-family="JetBrains Mono, monospace" fill="var(--muted)">${String(h).padStart(2, "0")}</text>`;
+  }
+  CLIPS.forEach((c, i) => {
+    const x = X(sinceStart(c.t)), p = prio(c.score), h = 8 + 22 * c.score;
+    s += `<g><title>#${i + 1} ${c.t.slice(0, 5)} · ${prioName[p]}</title><line x1="${x}" x2="${x}" y1="${base}" y2="${base - h}" stroke="var(--${p})" stroke-width="2"/><circle cx="${x}" cy="${base - h}" r="4" fill="var(--${p})"/></g>`;
+  });
+  $("#tl").innerHTML = s;
+}
+const thumbSvg = `<svg viewBox="0 0 100 75" aria-hidden="true"><rect width="100" height="75" fill="var(--room)"/><rect x="10" y="40" width="80" height="24" rx="4" fill="var(--bed)"/><circle cx="26" cy="38" r="6" fill="var(--body)"/><path d="M32 44 H62" stroke="var(--body)" stroke-width="7" stroke-linecap="round"/><path class="leg" d="M62 52 L84 50" stroke="var(--body)" stroke-width="5" stroke-linecap="round"/><path class="arm" d="M46 44 L58 34" stroke="var(--body)" stroke-width="4" stroke-linecap="round"/><rect x="48" y="44" width="38" height="12" rx="4" fill="var(--sheet)" opacity=".8"/></svg><span class="play"><svg width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="14" fill="rgba(0,0,0,.45)"/><path d="M11 9l8 5-8 5z" fill="#fff"/></svg></span>`;
+function renderClips() {
+  $("#clips").innerHTML = CLIPS.map((c, i) => {
+    const p = prio(c.score);
+    return `<article class="clip">
+      <div class="clip-top">
+        <button class="thumb" data-i="${i}" aria-label="Play clip ${i + 1}">${thumbSvg}</button>
+        <div class="meta">
+          <div class="when"><b class="mono">${c.t.slice(0, 5)}</b><span class="pill ${p}">${prioName[p]}</span></div>
+          <div class="reasons">${c.reasons}</div>
+        </div>
+      </div>
+      <div class="tags" data-i="${i}" role="group" aria-label="Tag clip ${i + 1}">${TAGS.map(t => `<button class="chip" aria-pressed="${c.tag === t}">${t}</button>`).join("")}</div>
+    </article>`;
+  }).join("");
+  updateTagged();
+}
+function updateTagged() {
+  const n = CLIPS.filter(c => c.tag).length;
+  $("#n-tagged").textContent = `${n} of ${CLIPS.length} tagged`;
+}
+$("#clips").addEventListener("click", e => {
+  const thumb = e.target.closest(".thumb");
+  if (thumb) {
+    thumb.classList.add("playing");
+    setTimeout(() => thumb.classList.remove("playing"), 2800);
+    return;
+  }
+  const chip = e.target.closest(".tags .chip");
+  if (!chip) return;
+  const group = chip.parentElement, c = CLIPS[+group.dataset.i];
+  c.tag = c.tag === chip.textContent ? "" : chip.textContent;
+  $$(".chip", group).forEach(b => b.setAttribute("aria-pressed", b.textContent === c.tag));
+  updateTagged();
+});
+
+/* 6. Summary */
+function fillSummary() {
+  ["rbd", "apnea", "meds", "hours"].forEach(q => $("#s-" + q).textContent = answer(q));
+  const enact = CLIPS.filter(c => c.tag === "dream enactment");
+  $("#s-enact").textContent = enact.length;
+  const picked = enact.length ? enact : CLIPS.filter(c => prio(c.score) === "high");
+  $("#s-clips").innerHTML = picked.map(c => `<li><span class="mono">23 Nov ${c.t.slice(0, 5)}</span> · ${enact.length ? "tagged dream enactment" : prioName[prio(c.score)].toLowerCase()}</li>`).join("")
+    + (enact.length ? "" : `<li style="color:var(--muted)">Tag clips on the review screen to choose which ones to send.</li>`);
+}
+$("#send").addEventListener("click", () => toast("Mockup only: the real app sends this summary and the chosen clips through the clinic portal."));
+$("#pdf").addEventListener("click", () => toast("Mockup only: the real app saves this page as a PDF."));
+
+drawTimeline();
+renderClips();
+checkConsent();
+show(location.hash.slice(1) || "welcome");
+</script>
